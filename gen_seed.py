@@ -21,6 +21,8 @@ USERS = [
 USER_MDP = '$2a$10$RTELpt2ltJpjDEYRhU1NR.uK8hw4pdVCWZNl5FCRYx.ejUI7LMzb.'
 REQUIRED_FILES = ['datasets.csv', 'dataset_files.csv', 'annotation_campaigns.csv']
 
+# TODO add header checking for CSV
+
 def main(seed_folder):
     # Generating users
     users = []
@@ -59,25 +61,35 @@ def main(seed_folder):
         ds['location_name']:{
             'name': ds['location_name'],
             'desc': ds['location_desc'],
-            'location': ds['location_lat'] + ' ' + ds['location_lon']
+            'location': ds['location_lat'] + ', ' + ds['location_lon']
         } for ds in data['datasets.csv']
     }
+    sql_locations = []
     for i, key in enumerate(geo_metadata.keys()):
         geo_metadata[key]['id'] = i + 1
+        # Location needs to be given in sql
+        latlon = geo_metadata[key].pop('location')
+        if latlon.strip(' ,') != '':
+            location = f"POINT({latlon})"
+            sql_locations.append(Template(initjs_templates.raw_sql).substitute({
+                'sql': f"UPDATE geo_metadata SET location = {location} WHERE id = {i + 1}"
+            }))
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'geo_metadata',
         'inserts': list(geo_metadata.values())
     })
+    for sql_location in sql_locations:
+        inserts += sql_location
 
     # Generating audio_metadata
     dataset_audio_metadata = {
         ds['name']:{
-            key[6:]:val for key, val in ds.items() if key.startswith('audio_')
+            key[6:]:val for key, val in ds.items() if key.startswith('audio_') and val != ''
         } for ds in data['datasets.csv']
     }
     dataset_files_audio_metadata = {
         dsf['filename']:{
-            key[6:]:val for key, val in dsf.items() if key.startswith('audio_')
+            key[6:]:val for key, val in dsf.items() if key.startswith('audio_') and val != ''
         } for dsf in data['dataset_files.csv']
     }
     audio_metadata = { **dataset_audio_metadata, **dataset_files_audio_metadata }
@@ -209,7 +221,7 @@ def main(seed_folder):
     k_id = 0
     for campaign in annotation_campaign_datasets:
         for file_id in annotation_files[campaign['dataset_id']]:
-            for user_id in range(1, user_count + 1):
+            for user_id in range(1, len(USERS) + 1):
                 k_id += 1
                 annotation_tasks.append({
                     'id': k_id,

@@ -12,8 +12,12 @@ del_insert = """
         );
     })"""
 
-initjs = """
-'use strict';
+raw_sql = """
+    .then(() => {
+        return knex.raw("$sql");
+    })"""
+
+initjs = """'use strict';
 
 exports.seed = function(knex, Promise) {
     return knex('users').del()
