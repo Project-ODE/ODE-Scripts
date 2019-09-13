@@ -24,8 +24,7 @@ class SpectroGenerator:
 
     def gen_spectro(self, data, sample_rate, output_file):
         """Generates a spectrogram"""
-        # Calculating Spectrogram
-        fPSD, _, vPSD = spectrogram(
+        frequencies, segment_times, spectro = spectrogram(
             x=data,
             fs=sample_rate,
             window='hann',
@@ -39,18 +38,14 @@ class SpectroGenerator:
             scaling='density'
         )
 
-        # Resizing
-        yStep = sample_rate / (2 * 256)
-        yEnd = sample_rate / 2 + 1 / 256
-        x, y = np.mgrid[slice(0, vPSD.shape[1] / 60, 1 / 60), slice(0, yEnd, yStep)]
-        z = 10 * np.log10(np.array(vPSD.T))
+        log_spectro = 10 * np.log10(np.array(spectro))
 
         my_dpi = 100
-        factX = 1.3
-        factY = 1.3
+        fact_x = 1.3
+        fact_y = 1.3
 
-        fig = plt.figure(figsize=(factX * 1800/my_dpi, factY * 512/my_dpi), dpi=my_dpi)
-        plt.pcolormesh(x, y, z, cmap=self.cmap_color)
+        fig = plt.figure(figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi), dpi=my_dpi)
+        plt.pcolormesh(segment_times, frequencies, log_spectro, cmap=self.cmap_color)
         plt.axis('off')
         fig.axes[0].get_xaxis().set_visible(False)
         fig.axes[0].get_yaxis().set_visible(False)
