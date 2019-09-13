@@ -11,16 +11,20 @@ PARSER.add_argument('audio_file', help='Filepath of the input audio wav file')
 PARSER.add_argument('--nfft', '-n', type=int, default=512, help='NFFT parameter for spectrogram')
 PARSER.add_argument('--win_size', '-w', type=int, default=512, help='Window size parameter for spectrogram')
 PARSER.add_argument('--overlap', '-o', type=float, default=0.9, help='Overlap parameter (in percent) for spectrogram')
+PARSER.add_argument('--min_freq', '-minf', type=float, default=None, help='Maximum frequency for spectrogram')
+PARSER.add_argument('--max_freq', '-maxf', type=float, default=None, help='Minimum frequency for spectrogram')
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
 class SpectroGenerator:
-    def __init__(self, nfft, win_size, pct_overlap, cmap_color):
+    def __init__(self, nfft, win_size, pct_overlap, cmap_color, min_freq=None, max_freq=None):
         self.nfft = nfft
         self.win_size = win_size
         self.pct_overlap = pct_overlap
         self.cmap_color = cmap_color
+        self.min_freq = min_freq
+        self.max_freq = max_freq
 
     def gen_spectro(self, data, sample_rate, output_file):
         """Generates a spectrogram"""
@@ -38,19 +42,29 @@ class SpectroGenerator:
             scaling='density'
         )
 
+        # Restricting spectro frenquencies
+        freqs_to_keep = (frequencies == frequencies)
+        if self.min_freq:
+            freqs_to_keep *= self.min_freq <= frequencies
+        if self.max_freq:
+            freqs_to_keep *= frequencies <= self.max_freq
+        frequencies = frequencies[freqs_to_keep]
+        spectro = spectro[freqs_to_keep, :]
+
+        # Switching to log spectrogram
         log_spectro = 10 * np.log10(np.array(spectro))
 
+        # Ploting spectrogram
         my_dpi = 100
         fact_x = 1.3
         fact_y = 1.3
-
         fig = plt.figure(figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi), dpi=my_dpi)
         plt.pcolormesh(segment_times, frequencies, log_spectro, cmap=self.cmap_color)
         plt.axis('off')
         fig.axes[0].get_xaxis().set_visible(False)
         fig.axes[0].get_yaxis().set_visible(False)
 
-        # Savefig
+        # Saving spectrogram plot to file
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=my_dpi)
         plt.close()
 
@@ -78,7 +92,14 @@ def main():
 
     data, sample_rate = soundfile.read(args.audio_file)
 
-    spectro_generator = SpectroGenerator(args.nfft, args.win_size, args.overlap, args.cmap_color)
+    spectro_generator = SpectroGenerator(
+        args.nfft,
+        args.win_size,
+        args.overlap,
+        args.cmap_color,
+        args.min_freq,
+        args.max_freq
+    )
 
     if args.tile_levels == 1:
         spectro_generator.gen_spectro(data, sample_rate, args.output)
