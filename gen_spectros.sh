@@ -3,6 +3,8 @@
 
 # Default spectro path is in ../Scripts
 GEN_SPECTRO_PATH=../Scripts/gen_spectro.py
+# Tiling level 6 makes for a x32 zoom, level 5 is x16 and so on
+TILING_LEVEL=6
 
 # make_spectros(audio_file, nfft, winsize, overlap)
 function make_spectros() {
@@ -10,7 +12,15 @@ function make_spectros() {
   folder=$basename/nfft=$2\ winsize=$3\ overlap=$4;
   mkdir -p "$folder";
   echo "Making spectros for $1 in folder $folder"
-  python3 $GEN_SPECTRO_PATH -t 6 -w $3 -n $2 -o $4 $1 "$folder/$basename";
+  python3 $GEN_SPECTRO_PATH -t $TILING_LEVEL -w $3 -n $2 -o $4 $1 "$folder/$basename";
+}
+
+# make_zip(folder_name)
+function make_zip() {
+  cd $1;
+  tar -cvzf ../$1.tgz *;
+  cd ..;
+  rm -rf $1;
 }
 
 # SPM
@@ -21,11 +31,10 @@ function make_spectros() {
 # 2-nfft = 4096
 # 2-overlap = 0.5
 for f in spm*.wav; do
-  basename=${f%.*};
   make_spectros $f 2048 1024 0.5;
   make_spectros $f 4096 4096 0.5;
-  zip $basename.zip -r "$basename"/*;
-  rm -rf "$basename";
+  basename=${f%.*};
+  make_zip $basename;
 done
 
 # DCLDE2015 HF
@@ -36,11 +45,10 @@ done
 # 2-nfft = 4096
 # 2-overlap = 0.5
 for f in 0*.wav; do
-  basename=${f%.*};
   make_spectros $f 1024 1024 0.5;
   make_spectros $f 4096 4096 0.5;
-  zip $basename.zip -r "$basename"/*;
-  rm -rf "$basename";
+  basename=${f%.*};
+  make_zip $basename;
 done
 
 # DCLDE2015 LF
@@ -51,9 +59,8 @@ done
 # 2-nfft = 4096
 # 2-overlap = 0.5
 for f in out*.wav; do
-  basename=${f%.*};
   make_spectros $f 2048 1024 0.5;
   make_spectros $f 4096 4096 0.5;
-  zip $basename.zip -r "$basename"/*;
-  rm -rf "$basename";
+  basename=${f%.*};
+  make_zip $basename;
 done
