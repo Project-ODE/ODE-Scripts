@@ -20,10 +20,34 @@ USERS = [
 ]
 USER_MDP = '$2a$10$RTELpt2ltJpjDEYRhU1NR.uK8hw4pdVCWZNl5FCRYx.ejUI7LMzb.'
 REQUIRED_FILES = ['datasets.csv', 'dataset_files.csv', 'annotation_campaigns.csv']
+SEED_TABLES = [
+    "users",
+    "dataset_types",
+    "geo_metadata",
+    "audio_metadata",
+    "datasets",
+    "dataset_files",
+    "annotation_sets",
+    "annotation_tags",
+    "annotation_set_tags",
+    "annotation_campaigns",
+    "annotation_campaign_datasets",
+    "annotation_tasks"
+]
+START_INDEX = 100
+END_INDEX = 1000
 
 # TODO add header checking for CSV
 
 def main(seed_folder):
+    inserts = ""
+
+    # Loading CSV files data in a dict
+    data = {}
+    for file in REQUIRED_FILES:
+        with open(seed_folder / file, 'r') as csvfile:
+            data[file] = list(csv.DictReader(csvfile, skipinitialspace=True))
+
     # Generating users
     users = []
     for i, user in enumerate(USERS):
@@ -32,15 +56,10 @@ def main(seed_folder):
             'email': user,
             'password': USER_MDP
         })
-
-
-    # Loading CSV files data in a dict
-    data = {}
-    for file in REQUIRED_FILES:
-        with open(seed_folder / file, 'r') as csvfile:
-            data[file] = list(csv.DictReader(csvfile, skipinitialspace=True))
-
-    inserts = ""
+    inserts += Template(initjs_templates.del_insert).substitute({
+        'table': 'users',
+        'inserts': users
+    })
 
     # Generating dataset_types
     dataset_types = {
@@ -235,7 +254,19 @@ def main(seed_folder):
         'inserts': annotation_tasks
     })
 
-    template_data = { 'users': users, 'promises': inserts }
+    init = (',\n' + ' ' * 8).join([
+        Template(initjs_templates.single_raw_sql).substitute({
+            'sql': f"ALTER SEQUENCE {table}_id_seq RESTART WITH {START_INDEX}"
+        }) for table in SEED_TABLES
+    ])
+
+    finish = (',\n' + ' ' * 12).join([
+        Template(initjs_templates.single_raw_sql).substitute({
+            'sql': f"ALTER SEQUENCE {table}_id_seq RESTART WITH {END_INDEX}"
+        }) for table in SEED_TABLES
+    ])
+
+    template_data = { 'init': init, 'promises': inserts, 'finish': finish }
     with open(seed_folder / 'init.js', 'w') as res_f:
         res_f.write(Template(initjs_templates.initjs).substitute(template_data))
 
