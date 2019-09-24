@@ -12,7 +12,7 @@ function make_spectros() {
   folder=$basename/nfft=$2\ winsize=$3\ overlap=$4;
   mkdir -p "$folder";
   echo "Making spectros for $1 in folder $folder"
-  python3 $GEN_SPECTRO_PATH -t $TILING_LEVEL -w $3 -n $2 -o $4 $1 "$folder/$basename";
+  python3 $GEN_SPECTRO_PATH -t $TILING_LEVEL -w $3 -n $2 -o $4 $1 "$folder/$f";
 }
 
 # make_zip(folder_name)
