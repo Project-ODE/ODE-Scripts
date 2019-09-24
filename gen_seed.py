@@ -52,7 +52,7 @@ def main(seed_folder):
     users = []
     for i, user in enumerate(USERS):
         users.append({
-            'id': i + 1,
+            'id': START_INDEX + i + 1,
             'email': user,
             'password': USER_MDP
         })
@@ -69,7 +69,7 @@ def main(seed_folder):
         } for ds in data['datasets.csv']
     }
     for i, key in enumerate(dataset_types.keys()):
-        dataset_types[key]['id'] = i + 1
+        dataset_types[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'dataset_types',
         'inserts': list(dataset_types.values())
@@ -85,7 +85,7 @@ def main(seed_folder):
     }
     sql_locations = []
     for i, key in enumerate(geo_metadata.keys()):
-        geo_metadata[key]['id'] = i + 1
+        geo_metadata[key]['id'] = START_INDEX + i + 1
         # Location needs to be given in sql
         latlon = geo_metadata[key].pop('location')
         if latlon.strip(' ,') != '':
@@ -113,7 +113,7 @@ def main(seed_folder):
     }
     audio_metadata = { **dataset_audio_metadata, **dataset_files_audio_metadata }
     for i, key in enumerate(audio_metadata.keys()):
-        audio_metadata[key]['id'] = i + 1
+        audio_metadata[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'audio_metadata',
         'inserts': list(audio_metadata.values())
@@ -130,11 +130,11 @@ def main(seed_folder):
             'dataset_type_id': dataset_types[ds['dataset_type_name']]['id'],
             'geo_metadata_id': geo_metadata[ds['location_name']]['id'],
             'audio_metadata_id': audio_metadata[ds['name']]['id'],
-            'owner_id': 1
+            'owner_id': START_INDEX + 1
         } for ds in data['datasets.csv']
     }
     for i, key in enumerate(datasets.keys()):
-        datasets[key]['id'] = i + 1
+        datasets[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'datasets',
         'inserts': list(datasets.values())
@@ -150,7 +150,7 @@ def main(seed_folder):
         } for dsf in data['dataset_files.csv']
     }
     for i, key in enumerate(dataset_files.keys()):
-        dataset_files[key]['id'] = i + 1
+        dataset_files[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'dataset_files',
         'inserts': list(dataset_files.values())
@@ -161,11 +161,11 @@ def main(seed_folder):
         ac['annotation_set'].replace(' ', ''):{
             'name': ac['name'],
             'desc': 'Annotation set made for ' + ac['name'],
-            'owner_id': 1
+            'owner_id': START_INDEX + 1
         } for ac in data['annotation_campaigns.csv']
     }
     for i, key in enumerate(annotation_sets.keys()):
-        annotation_sets[key]['id'] = i + 1
+        annotation_sets[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'annotation_sets',
         'inserts': list(annotation_sets.values())
@@ -174,7 +174,7 @@ def main(seed_folder):
     # Generating annotation_tags
     annotation_tags = {
         tag:{
-            'id': i + 1,
+            'id': START_INDEX + i + 1,
             'name': tag
         } for i, tag in enumerate(','.join(annotation_sets.keys()).split(','))
     }
@@ -190,7 +190,7 @@ def main(seed_folder):
         for tag in annotation_set.split(','):
             k_id += 1
             annotation_set_tags.append({
-                'id': k_id,
+                'id': START_INDEX + k_id,
                 'annotation_set_id': annotation_sets[annotation_set]['id'],
                 'annotation_tag_id': annotation_tags[tag]['id']
             })
@@ -207,11 +207,11 @@ def main(seed_folder):
             'start': ac['start'],
             'end': ac['end'],
             'annotation_set_id': annotation_sets[ac['annotation_set'].replace(' ', '')]['id'],
-            'owner_id': 1
+            'owner_id': START_INDEX + 1
         } for ac in data['annotation_campaigns.csv']
     }
     for i, key in enumerate(annotation_campaigns.keys()):
-        annotation_campaigns[key]['id'] = i + 1
+        annotation_campaigns[key]['id'] = START_INDEX + i + 1
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'annotation_campaigns',
         'inserts': list(annotation_campaigns.values())
@@ -221,7 +221,7 @@ def main(seed_folder):
     annotation_campaign_datasets = []
     for i, line in enumerate(data['annotation_campaigns.csv']):
         annotation_campaign_datasets.append({
-            'id': i + 1,
+            'id': START_INDEX + i + 1,
             'annotation_campaign_id': annotation_campaigns[line['name']]['id'],
             'dataset_id': datasets[line['dataset_name']]['id']
         })
@@ -240,25 +240,22 @@ def main(seed_folder):
     k_id = 0
     for campaign in annotation_campaign_datasets:
         for file_id in annotation_files[campaign['dataset_id']]:
-            for user_id in range(1, len(USERS) + 1):
+            for user in users:
                 k_id += 1
                 annotation_tasks.append({
-                    'id': k_id,
+                    'id': START_INDEX + k_id,
                     'annotation_campaign_id': campaign['annotation_campaign_id'],
                     'dataset_file_id': file_id,
                     'status': 0,
-                    'annotator_id': user_id
+                    'annotator_id': user['id']
                 })
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'annotation_tasks',
         'inserts': annotation_tasks
     })
 
-    init = (',\n' + ' ' * 8).join([
-        Template(initjs_templates.single_raw_sql).substitute({
-            'sql': f"ALTER SEQUENCE {table}_id_seq RESTART WITH {START_INDEX}"
-        }) for table in SEED_TABLES
-    ])
+    # No init at the moment
+    init = ''
 
     finish = (',\n' + ' ' * 12).join([
         Template(initjs_templates.single_raw_sql).substitute({
