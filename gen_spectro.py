@@ -5,17 +5,20 @@ import soundfile
 from scipy.signal import spectrogram
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import signal
+
 
 PARSER = argparse.ArgumentParser(description='Script that generates a png spectrogram from an audio wav file')
 PARSER.add_argument('audio_file', help='Filepath of the input audio wav file')
-PARSER.add_argument('--nfft', '-n', type=int, default=512, help='NFFT parameter for spectrogram')
-PARSER.add_argument('--win_size', '-w', type=int, default=512, help='Window size parameter for spectrogram')
-PARSER.add_argument('--overlap', '-o', type=float, default=0.9, help='Overlap parameter (in percent) for spectrogram')
-PARSER.add_argument('--min_freq', '-minf', type=float, default=None, help='Maximum frequency for spectrogram')
+PARSER.add_argument('--nfft', '-n', type=int, default=4096, help='NFFT parameter for spectrogram')
+PARSER.add_argument('--win_size', '-w', type=int, default=4096, help='Window size parameter for spectrogram')
+PARSER.add_argument('--overlap', '-o', type=float, default=0, help='Overlap parameter (in percent) for spectrogram')
+PARSER.add_argument('--min_freq', '-minf', type=float, default=0, help='Maximum frequency for spectrogram')
 PARSER.add_argument('--max_freq', '-maxf', type=float, default=None, help='Minimum frequency for spectrogram')
-PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
+PARSER.add_argument('--cmap_color', '-c', type=str, default='plasma', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
+
 
 class SpectroGenerator:
     def __init__(self, nfft, win_size, pct_overlap, cmap_color, min_freq=None, max_freq=None):
@@ -26,21 +29,52 @@ class SpectroGenerator:
         self.min_freq = min_freq
         self.max_freq = max_freq
 
-    def gen_spectro(self, data, sample_rate, output_file):
-        """Generates a spectrogram"""
-        frequencies, segment_times, spectro = spectrogram(
-            x=data,
-            fs=sample_rate,
-            window='hann',
-            nperseg=self.win_size,
-            noverlap=self.win_size * self.pct_overlap,
-            nfft=self.nfft,
-            detrend=False,
-            return_onesided=True,
-            axis=-1,
-            mode='psd',
-            scaling='density'
-        )
+    def gen_spectro(self, data, sample_rate, output_file,levelL):
+
+        global maxW
+
+        x = data
+        winName='hamming'
+        noverlap = int(self.win_size * self.pct_overlap/100)
+        nperseg = self.win_size
+        nstep = nperseg - noverlap
+        nFFT = self.nfft
+        fs=sample_rate
+
+        win = signal.get_window(winName, nperseg)
+
+        x = np.asarray(x)
+        shape = x.shape[:-1] + ((x.shape[-1] - noverlap) // nstep, nperseg)
+        strides = x.strides[:-1] + (nstep * x.strides[-1], x.strides[-1])
+        xinprewin = np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
+        xinwin = win * xinprewin
+
+        result = xinwin.real
+        func = np.fft.rfft
+        fftraw = func(result, n=nFFT)
+
+        scale_psd = 1.0 / (fs * (win * win).sum())
+        vPSD_noBB = np.conjugate(fftraw) * fftraw
+        vPSD_noBB *= scale_psd
+
+        if nFFT % 2:
+            vPSD_noBB[..., 1:] *= 2
+        else:
+            vPSD_noBB[..., 1:-1] *= 2
+
+        spectro = vPSD_noBB.real
+
+        segment_times = np.arange(nperseg / 2, x.shape[-1] - nperseg / 2 + 1, nperseg - noverlap) / float(fs)
+
+        frequencies = np.fft.rfftfreq(nFFT, 1 / fs)
+
+        spectro = spectro.transpose()
+
+        if levelL==0:
+            maxW = np.amax(spectro)
+
+        spectro = spectro / maxW
+
 
         # Restricting spectro frenquencies
         freqs_to_keep = (frequencies == frequencies)
@@ -60,6 +94,7 @@ class SpectroGenerator:
         fact_y = 1.3
         fig = plt.figure(figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi), dpi=my_dpi)
         plt.pcolormesh(segment_times, frequencies, log_spectro, cmap=self.cmap_color)
+        plt.clim([-35,0])
         plt.axis('off')
         fig.axes[0].get_xaxis().set_visible(False)
         fig.axes[0].get_yaxis().set_visible(False)
@@ -74,11 +109,11 @@ def gen_tiles(spectro_generator, tile_levels, data, sample_rate, output):
     for level in range(0, tile_levels):
         tile_duration = duration / 2**level
         for tile in range(0, 2**level):
-            start = tile * tile_duration
-            end = start + tile_duration
-            output_file = f"{output[:-4]}_{start}_{end}.png"
+            start = int(tile * tile_duration)
+            end = int(start + tile_duration)
+            output_file = f"{output[:-4]}_{spectro_generator.nfft}_{level}_{start}_{end}.png"
             sample_data = data[int(start * sample_rate):int(end * sample_rate)]
-            spectro_generator.gen_spectro(sample_data, sample_rate, output_file)
+            spectro_generator.gen_spectro(sample_data, sample_rate, output_file,level)
 
 def main():
     """Main script function"""
@@ -102,7 +137,7 @@ def main():
     )
 
     if args.tile_levels == 1:
-        spectro_generator.gen_spectro(data, sample_rate, args.output)
+        spectro_generator.gen_spectro(data, sample_rate, args.output,args.tile_levels)
     else:
         gen_tiles(spectro_generator, args.tile_levels, data, sample_rate, args.output)
 
