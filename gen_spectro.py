@@ -12,41 +12,57 @@ PARSER.add_argument('audio_file', help='Filepath of the input audio wav file')
 PARSER.add_argument('--nfft', '-n', type=int, default=4096, help='NFFT parameter for spectrogram')
 PARSER.add_argument('--win_size', '-w', type=int, default=4096, help='Window size parameter for spectrogram')
 PARSER.add_argument('--overlap', '-o', type=float, default=0, help='Overlap parameter (in percent) for spectrogram')
-PARSER.add_argument('--min_freq_plot', '-minfp', type=float, default=None, help='Maximum frequency for spectrogram plot')
-PARSER.add_argument('--max_freq_plot', '-maxfp', type=float, default=None, help='Minimum frequency for spectrogram plot')
-PARSER.add_argument('--min_freq_dyn', '-minfd', type=float, default=None, help='Maximum frequency for spectrogram dynamic range')
-PARSER.add_argument('--max_freq_dyn', '-maxfd', type=float, default=None, help='Minimum frequency for spectrogram dynamic range')
-PARSER.add_argument('--min_color_val', '-mincv', type=float, default=None, help='Set the color min norm limit for image scaling')
-PARSER.add_argument('--max_color_val', '-maxcv', type=float, default=None, help='Set the color max norm limit for image scaling')
+PARSER.add_argument('--freq_plot_range', '-fpr', type=str, default=None, help='Frequency range (min:max) for spectrogram plot')
+PARSER.add_argument('--freq_dyn_range', '-fdr', type=str, default=None, help='Frequency range (min:max) for spectrogram dynamic range')
+PARSER.add_argument('--color_val_range', '-cvr', type=str, default=None, help='Set the color norm limit range (min:max) for image scaling')
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
 
+class Range:
+    def __init__(self, string=None, min=None, max=None):
+        self.min = None
+        self.max = None
+        if string != None:
+            format_prompt = 'Range input should have MIN:MAX, or MIN: or :MAX format'
+            if type(string) == str and string != '':
+                if string.startswith(':'):
+                    self.max = float(string[1:])
+                elif string.endswith(':'):
+                    self.min = float(string[:-1])
+                else:
+                    string_split = string.split(':')
+                    if len(string_split) != 2:
+                        raise ValueError(format_prompt)
+                    self.min = float(string_split[0])
+                    self.max = float(string_split[1])
+            else:
+                raise ValueError(format_prompt)
+        else:
+            if min:
+                self.min = min
+            if max:
+                self.max = max
+        if self.min != None and self.max != None:
+            if self.min > self.max:
+                raise ValueError('Max value should be bigger than min value')
+
+    def __repr__(self):
+        return f"Range({self.min}:{self.max})"
+
 class SpectroGenerator:
-    def __init__(
-        self,
-        nfft,
-        win_size,
-        pct_overlap,
-        cmap_color,
-        min_freq_plot=None,
-        max_freq_plot=None,
-        min_freq_dyn=None,
-        max_freq_dyn=None,
-        min_color_val=None,
-        max_color_val=None
-    ):
+    def __init__(self, nfft, win_size, pct_overlap, cmap_color, freq_plot_range=None, freq_dyn_range=None, color_val_range=None):
         self.nfft = nfft
         self.win_size = win_size
         self.pct_overlap = pct_overlap
         self.cmap_color = cmap_color
-        self.min_freq_plot = min_freq_plot
-        self.max_freq_plot = max_freq_plot
-        self.min_freq_dyn = min_freq_dyn
-        self.max_freq_dyn = max_freq_dyn
-        self.min_color_val = min_color_val
-        self.max_color_val = max_color_val
+        self.min_freq_plot = freq_plot_range.min if freq_plot_range else None
+        self.max_freq_plot = freq_plot_range.max if freq_plot_range else None
+        self.min_freq_dyn = freq_dyn_range.min if freq_dyn_range else None
+        self.max_freq_dyn = freq_dyn_range.max if freq_dyn_range else None
+        self.min_color_val = color_val_range.min if color_val_range else None
+        self.max_color_val = color_val_range.max if color_val_range else None
         self.max_w = 1
 
     def gen_spectro(self, data, sample_rate, output_file, main_ref=False, window_type='hamming'):
@@ -143,17 +159,18 @@ def main():
 
     data, sample_rate = soundfile.read(args.audio_file)
 
+    freq_plot_range = Range(args.freq_plot_range) if args.freq_plot_range else None
+    freq_dyn_range = Range(args.freq_dyn_range) if args.freq_dyn_range else None
+    color_val_range = Range(args.color_val_range) if args.color_val_range else None
+
     spectro_generator = SpectroGenerator(
         args.nfft,
         args.win_size,
         args.overlap,
         args.cmap_color,
-        args.min_freq_plot,
-        args.max_freq_plot,
-        args.min_freq_dyn,
-        args.max_freq_dyn,
-        args.min_color_val,
-        args.max_color_val
+        freq_plot_range,
+        freq_dyn_range,
+        color_val_range
     )
 
     if args.tile_levels == 1:
