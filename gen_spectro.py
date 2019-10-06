@@ -14,7 +14,7 @@ PARSER.add_argument('--win_size', '-w', type=int, default=4096, help='Window siz
 PARSER.add_argument('--overlap', '-o', type=float, default=0, help='Overlap parameter (in percent) for spectrogram')
 PARSER.add_argument('--min_freq', '-minf', type=float, default=None, help='Maximum frequency for spectrogram')
 PARSER.add_argument('--max_freq', '-maxf', type=float, default=None, help='Minimum frequency for spectrogram')
-PARSER.add_argument('--cmap_color', '-c', type=str, default='plasma', help='CMAP color parameter for spectrogram (cf matplotlib)')
+PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
@@ -62,7 +62,11 @@ class SpectroGenerator:
 
         # Setting self.max_w and normalising spectro as needed
         if main_ref:
-            self.max_w = np.amax(spectro)
+            # Restricting spectro frenquencies
+            freqs_to_keep = (frequencies == frequencies)
+            freqs_to_keep *= 25 <= frequencies
+            freqs_to_keep *= frequencies <= 150
+            self.max_w = np.amax(spectro[freqs_to_keep, :])
         spectro = spectro / self.max_w
 
 
@@ -84,7 +88,7 @@ class SpectroGenerator:
         fact_y = 1.3
         fig = plt.figure(figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi), dpi=my_dpi)
         plt.pcolormesh(segment_times, frequencies, log_spectro, cmap=self.cmap_color)
-        plt.clim([-35,0])
+        plt.clim([-30,0])
         plt.axis('off')
         fig.axes[0].get_xaxis().set_visible(False)
         fig.axes[0].get_yaxis().set_visible(False)
