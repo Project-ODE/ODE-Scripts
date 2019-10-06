@@ -97,11 +97,12 @@ def gen_tiles(spectro_generator, tile_levels, data, sample_rate, output):
     """Generates multiple spectrograms for zoom tiling"""
     duration = len(data) / int(sample_rate)
     for level in range(0, tile_levels):
-        tile_duration = duration / 2**level
-        for tile in range(0, 2**level):
-            start = int(tile * tile_duration)
-            end = int(start + tile_duration)
-            output_file = f"{output[:-4]}_{spectro_generator.nfft}_{level}_{start}_{end}.png"
+        zoom_level = 2**level
+        tile_duration = duration / zoom_level
+        for tile in range(0, zoom_level):
+            start = tile * tile_duration
+            end = start + tile_duration
+            output_file = f"{output[:-4]}_{zoom_level}_{tile}.png"
             sample_data = data[int(start * sample_rate):int(end * sample_rate)]
             spectro_generator.gen_spectro(sample_data, sample_rate, output_file, level == 0)
 
