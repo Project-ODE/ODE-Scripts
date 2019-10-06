@@ -12,21 +12,41 @@ PARSER.add_argument('audio_file', help='Filepath of the input audio wav file')
 PARSER.add_argument('--nfft', '-n', type=int, default=4096, help='NFFT parameter for spectrogram')
 PARSER.add_argument('--win_size', '-w', type=int, default=4096, help='Window size parameter for spectrogram')
 PARSER.add_argument('--overlap', '-o', type=float, default=0, help='Overlap parameter (in percent) for spectrogram')
-PARSER.add_argument('--min_freq', '-minf', type=float, default=None, help='Maximum frequency for spectrogram')
-PARSER.add_argument('--max_freq', '-maxf', type=float, default=None, help='Minimum frequency for spectrogram')
+PARSER.add_argument('--min_freq_plot', '-minfp', type=float, default=None, help='Maximum frequency for spectrogram plot')
+PARSER.add_argument('--max_freq_plot', '-maxfp', type=float, default=None, help='Minimum frequency for spectrogram plot')
+PARSER.add_argument('--min_freq_dyn', '-minfd', type=float, default=None, help='Maximum frequency for spectrogram dynamic range')
+PARSER.add_argument('--max_freq_dyn', '-maxfd', type=float, default=None, help='Minimum frequency for spectrogram dynamic range')
+PARSER.add_argument('--min_color_val', '-mincv', type=float, default=None, help='Set the color min norm limit for image scaling')
+PARSER.add_argument('--max_color_val', '-maxcv', type=float, default=None, help='Set the color max norm limit for image scaling')
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
 
 class SpectroGenerator:
-    def __init__(self, nfft, win_size, pct_overlap, cmap_color, min_freq=None, max_freq=None):
+    def __init__(
+        self,
+        nfft,
+        win_size,
+        pct_overlap,
+        cmap_color,
+        min_freq_plot=None,
+        max_freq_plot=None,
+        min_freq_dyn=None,
+        max_freq_dyn=None,
+        min_color_val=None,
+        max_color_val=None
+    ):
         self.nfft = nfft
         self.win_size = win_size
         self.pct_overlap = pct_overlap
         self.cmap_color = cmap_color
-        self.min_freq = min_freq
-        self.max_freq = max_freq
+        self.min_freq_plot = min_freq_plot
+        self.max_freq_plot = max_freq_plot
+        self.min_freq_dyn = min_freq_dyn
+        self.max_freq_dyn = max_freq_dyn
+        self.min_color_val = min_color_val
+        self.max_color_val = max_color_val
         self.max_w = 1
 
     def gen_spectro(self, data, sample_rate, output_file, main_ref=False, window_type='hamming'):
@@ -60,24 +80,25 @@ class SpectroGenerator:
         frequencies = np.fft.rfftfreq(self.nfft, 1 / sample_rate)
         spectro = spectro.transpose()
 
-        # Setting self.max_w and normalising spectro as needed
-        if main_ref:
-            # Restricting spectro frenquencies
-            freqs_to_keep = (frequencies == frequencies)
-            freqs_to_keep *= 25 <= frequencies
-            freqs_to_keep *= frequencies <= 150
-            self.max_w = np.amax(spectro[freqs_to_keep, :])
-        spectro = spectro / self.max_w
-
-
         # Restricting spectro frenquencies
         freqs_to_keep = (frequencies == frequencies)
-        if self.min_freq:
-            freqs_to_keep *= self.min_freq <= frequencies
-        if self.max_freq:
-            freqs_to_keep *= frequencies <= self.max_freq
+        if self.min_freq_plot:
+            freqs_to_keep *= self.min_freq_plot <= frequencies
+        if self.max_freq_plot:
+            freqs_to_keep *= frequencies <= self.max_freq_plot
         frequencies = frequencies[freqs_to_keep]
         spectro = spectro[freqs_to_keep, :]
+
+        # Setting self.max_w and normalising spectro as needed
+        if main_ref:
+            # Restricting spectro frenquencies for dynamic range
+            freqs_to_keep = (frequencies == frequencies)
+            if self.min_freq_dyn:
+                freqs_to_keep *= self.min_freq_dyn <= frequencies
+            if self.max_freq_dyn:
+                freqs_to_keep *= frequencies <= self.max_freq_dyn
+            self.max_w = np.amax(spectro[freqs_to_keep, :])
+        spectro = spectro / self.max_w
 
         # Switching to log spectrogram
         log_spectro = 10 * np.log10(np.array(spectro))
@@ -88,7 +109,7 @@ class SpectroGenerator:
         fact_y = 1.3
         fig = plt.figure(figsize=(fact_x * 1800 / my_dpi, fact_y * 512 / my_dpi), dpi=my_dpi)
         plt.pcolormesh(segment_times, frequencies, log_spectro, cmap=self.cmap_color)
-        plt.clim([-30,0])
+        plt.clim(vmin=self.min_color_val, vmax=self.max_color_val)
         plt.axis('off')
         fig.axes[0].get_xaxis().set_visible(False)
         fig.axes[0].get_yaxis().set_visible(False)
@@ -127,8 +148,12 @@ def main():
         args.win_size,
         args.overlap,
         args.cmap_color,
-        args.min_freq,
-        args.max_freq
+        args.min_freq_plot,
+        args.max_freq_plot,
+        args.min_freq_dyn,
+        args.max_freq_dyn,
+        args.min_color_val,
+        args.max_color_val
     )
 
     if args.tile_levels == 1:
