@@ -134,18 +134,18 @@ class SpectroGenerator:
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=my_dpi)
         plt.close()
 
-def gen_tiles(spectro_generator, tile_levels, data, sample_rate, output):
-    """Generates multiple spectrograms for zoom tiling"""
-    duration = len(data) / int(sample_rate)
-    for level in range(0, tile_levels):
-        zoom_level = 2**level
-        tile_duration = duration / zoom_level
-        for tile in range(0, zoom_level):
-            start = tile * tile_duration
-            end = start + tile_duration
-            output_file = f"{output[:-4]}_{zoom_level}_{tile}.png"
-            sample_data = data[int(start * sample_rate):int(end * sample_rate)]
-            spectro_generator.gen_spectro(sample_data, sample_rate, output_file, level == 0)
+    def gen_tiles(self, tile_levels, data, sample_rate, output):
+        """Generates multiple spectrograms for zoom tiling"""
+        duration = len(data) / int(sample_rate)
+        for level in range(0, tile_levels):
+            zoom_level = 2**level
+            tile_duration = duration / zoom_level
+            for tile in range(0, zoom_level):
+                start = tile * tile_duration
+                end = start + tile_duration
+                output_file = f"{output[:-4]}_{zoom_level}_{tile}.png"
+                sample_data = data[int(start * sample_rate):int(end * sample_rate)]
+                self.gen_spectro(sample_data, sample_rate, output_file, level == 0)
 
 def main():
     """Main script function"""
@@ -174,9 +174,9 @@ def main():
     )
 
     if args.tile_levels == 1:
-        spectro_generator.gen_spectro(data, sample_rate, args.output,args.tile_levels)
+        spectro_generator.gen_spectro(data, sample_rate, args.output)
     else:
-        gen_tiles(spectro_generator, args.tile_levels, data, sample_rate, args.output)
+        spectro_generator.gen_tiles(args.tile_levels, data, sample_rate, args.output)
 
 if __name__ == '__main__':
     main()
