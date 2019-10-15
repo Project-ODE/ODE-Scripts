@@ -4,6 +4,7 @@ import argparse
 import csv
 from pathlib import Path
 from string import Template
+import bcrypt
 
 import initjs_templates
 
@@ -50,12 +51,23 @@ def main(seed_folder):
 
     # Generating users
     users = []
-    for i, user in enumerate(USERS):
-        users.append({
-            'id': START_INDEX + i + 1,
-            'email': user,
-            'password': USER_MDP
-        })
+    users_csv = seed_folder / 'users.csv'
+    if users_csv.exists():
+        with open(users_csv, 'r') as csvfile:
+            users_input = list(csv.DictReader(csvfile, skipinitialspace=True))
+        for i, user in enumerate(users_input):
+            users.append({
+                'id': START_INDEX + i + 1,
+                'email': user['user'],
+                'password': bcrypt.hashpw(user['password'].encode(), bcrypt.gensalt()).decode()
+            })
+    else:
+        for i, user in enumerate(USERS):
+            users.append({
+                'id': START_INDEX + i + 1,
+                'email': user,
+                'password': USER_MDP
+            })
     inserts += Template(initjs_templates.del_insert).substitute({
         'table': 'users',
         'inserts': users
