@@ -18,6 +18,7 @@ PARSER.add_argument('--color_val_range', '-cvr', type=str, default=None, help='S
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
 PARSER.add_argument('--butter-order', '-b', type=int, default=5, help='Order level for Butterworth highpass digital filter')
+PARSER.add_argument('--max-bgw', '-mw', type=float, default=None, help='Fix value for spectro background highlighting')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
 
@@ -135,18 +136,19 @@ class SpectroGenerator:
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=my_dpi)
         plt.close()
 
-    def gen_tiles(self, tile_levels, data, sample_rate, output):
+    def gen_tiles(self, tile_levels, data, sample_rate, output, equalize_spectro=True):
         """Generates multiple spectrograms for zoom tiling"""
         duration = len(data) / int(sample_rate)
         for level in range(0, tile_levels):
             zoom_level = 2**level
             tile_duration = duration / zoom_level
+            main_ref = equalize_spectro and (level == 0)
             for tile in range(0, zoom_level):
                 start = tile * tile_duration
                 end = start + tile_duration
                 output_file = f"{output[:-4]}_{zoom_level}_{tile}.png"
                 sample_data = data[int(start * sample_rate):int(end * sample_rate)]
-                self.gen_spectro(sample_data, sample_rate, output_file, level == 0)
+                self.gen_spectro(sample_data, sample_rate, output_file, main_ref=main_ref)
 
 def butter_highpass_filter(data, cutoff, sample_rate, order):
     """Applies highpass (above cutoff) Butterworth digital filter of given order on data"""
@@ -188,10 +190,15 @@ def main():
         color_val_range
     )
 
+    equalize_spectro = False
+    if args.max_bgw:
+        spectro_generator.max_w = args.max_bgw
+        equalize_spectro = True
+
     if args.tile_levels == 1:
         spectro_generator.gen_spectro(data, sample_rate, args.output)
     else:
-        spectro_generator.gen_tiles(args.tile_levels, data, sample_rate, args.output)
+        spectro_generator.gen_tiles(args.tile_levels, data, sample_rate, args.output, equalize_spectro)
 
 if __name__ == '__main__':
     main()
