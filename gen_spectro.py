@@ -17,6 +17,7 @@ PARSER.add_argument('--freq_dyn_range', '-fdr', type=str, default=None, help='Fr
 PARSER.add_argument('--color_val_range', '-cvr', type=str, default=None, help='Set the color norm limit range (min:max) for image scaling')
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
+PARSER.add_argument('--butter-order', '-b', type=int, default=5, help='Order level for Butterworth highpass digital filter')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
 
@@ -147,6 +148,12 @@ class SpectroGenerator:
                 sample_data = data[int(start * sample_rate):int(end * sample_rate)]
                 self.gen_spectro(sample_data, sample_rate, output_file, level == 0)
 
+def butter_highpass_filter(data, cutoff, sample_rate, order):
+    """Applies highpass (above cutoff) Butterworth digital filter of given order on data"""
+    normal_cutoff = cutoff / (0.5 * sample_rate)
+    numerator, denominator = signal.butter(order, normal_cutoff, btype='high', analog=False)
+    return signal.filtfilt(numerator, denominator, data)
+
 def main():
     """Main script function"""
     args = PARSER.parse_args()
@@ -162,6 +169,14 @@ def main():
     freq_plot_range = Range(args.freq_plot_range) if args.freq_plot_range else None
     freq_dyn_range = Range(args.freq_dyn_range) if args.freq_dyn_range else None
     color_val_range = Range(args.color_val_range) if args.color_val_range else None
+
+    # Applying highpass Butterworth digital filter
+    butter_cutoff = 0
+    if freq_dyn_range and freq_dyn_range.min:
+        butter_cutoff = freq_dyn_range.min
+    elif freq_plot_range and freq_plot_range.min:
+        butter_cutoff = freq_plot_range.min
+    data = butter_highpass_filter(data, butter_cutoff, sample_rate, args.butter_order)
 
     spectro_generator = SpectroGenerator(
         args.nfft,
