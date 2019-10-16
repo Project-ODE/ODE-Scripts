@@ -190,10 +190,10 @@ def main():
         color_val_range
     )
 
-    equalize_spectro = False
+    equalize_spectro = True
     if args.max_bgw:
         spectro_generator.max_w = args.max_bgw
-        equalize_spectro = True
+        equalize_spectro = False
 
     if args.tile_levels == 1:
         spectro_generator.gen_spectro(data, sample_rate, args.output)
