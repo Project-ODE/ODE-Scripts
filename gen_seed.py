@@ -216,6 +216,7 @@ def main(seed_folder):
         ac['name']:{
             'name': ac['name'],
             'desc': ac['desc'],
+            'instructions_url': ac['instructions_url'],
             'start': ac['start'],
             'end': ac['end'],
             'annotation_set_id': annotation_sets[ac['annotation_set'].replace(' ', '')]['id'],
