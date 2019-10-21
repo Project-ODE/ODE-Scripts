@@ -67,7 +67,7 @@ class SpectroGenerator:
         self.max_color_val = color_val_range.max if color_val_range else None
         self.max_w = 1
 
-    def gen_spectro(self, data, sample_rate, output_file, main_ref=False, window_type='hamming'):
+    def gen_spectro(self, data, sample_rate, output_file, main_ref=False, shorten=False, window_type='hamming'):
         noverlap = int(self.win_size * self.pct_overlap/100)
         nperseg = self.win_size
         nstep = nperseg - noverlap
@@ -118,6 +118,11 @@ class SpectroGenerator:
             self.max_w = np.amax(spectro[freqs_to_keep, :])
         spectro = spectro / self.max_w
 
+        # This is needed to match end of tile n with start of tile n+1
+        if shorten:
+            segment_times = segment_times[:-1]
+            spectro = spectro[:,:-1]
+
         # Switching to log spectrogram
         log_spectro = 10 * np.log10(np.array(spectro))
 
@@ -147,8 +152,10 @@ class SpectroGenerator:
                 start = tile * tile_duration
                 end = start + tile_duration
                 output_file = f"{output[:-4]}_{zoom_level}_{tile}.png"
-                sample_data = data[int(start * sample_rate):int(end * sample_rate)]
-                self.gen_spectro(sample_data, sample_rate, output_file, main_ref=main_ref)
+                sample_data = data[int(start * sample_rate):int((end + 1) * sample_rate)]
+                shorten = level > 0 and tile < zoom_level-1
+                self.gen_spectro(sample_data, sample_rate, output_file, main_ref=main_ref, shorten=shorten)
+
 
 def butter_highpass_filter(data, cutoff, sample_rate, order):
     """Applies highpass (above cutoff) Butterworth digital filter of given order on data"""
