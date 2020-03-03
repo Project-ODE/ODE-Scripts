@@ -85,6 +85,7 @@ class SpectroGenerator:
         scale_psd = 1.0 / (sample_rate * (win * win).sum())
         vPSD_noBB = np.conjugate(fftraw) * fftraw
         vPSD_noBB *= scale_psd
+        del fftraw
 
         if self.nfft % 2:
             vPSD_noBB[..., 1:] *= 2
@@ -95,6 +96,7 @@ class SpectroGenerator:
         segment_times = np.arange(nperseg / 2, x.shape[-1] - nperseg / 2 + 1, nperseg - noverlap) / float(sample_rate)
         frequencies = np.fft.rfftfreq(self.nfft, 1 / sample_rate)
         spectro = spectro.transpose()
+        del vPSD_noBB
 
         # Restricting spectro frenquencies
         freqs_to_keep = (frequencies == frequencies)
@@ -123,6 +125,7 @@ class SpectroGenerator:
 
         # Switching to log spectrogram
         log_spectro = 10 * np.log10(np.array(spectro))
+        del spectro
 
         # Ploting spectrogram
         my_dpi = 100
@@ -137,7 +140,9 @@ class SpectroGenerator:
 
         # Saving spectrogram plot to file
         plt.savefig(output_file, bbox_inches='tight', pad_inches=0, dpi=my_dpi)
-        plt.close()
+        fig.clear()
+        plt.close(fig)
+        del log_spectro
 
     def gen_tiles(self, tile_levels, data, sample_rate, output, equalize_spectro=True):
         """Generates multiple spectrograms for zoom tiling"""
