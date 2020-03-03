@@ -17,7 +17,7 @@ PARSER.add_argument('--freq_dyn_range', '-fdr', type=str, default=None, help='Fr
 PARSER.add_argument('--color_val_range', '-cvr', type=str, default=None, help='Set the color norm limit range (min:max) for image scaling')
 PARSER.add_argument('--cmap_color', '-c', type=str, default='Greys', help='CMAP color parameter for spectrogram (cf matplotlib)')
 PARSER.add_argument('--tile-levels', '-tl', type=int, default=1, help='Number of wanted tile levels (default 1)')
-PARSER.add_argument('--butter-order', '-b', type=int, default=5, help='Order level for Butterworth highpass digital filter')
+PARSER.add_argument('--butter-order', '-b', type=int, default=None, help='Order level for Butterworth highpass digital filter')
 PARSER.add_argument('--max-bgw', '-mw', type=float, default=None, help='Fix value for spectro background highlighting')
 PARSER.add_argument('output', nargs='?', help='Desired ouput filepath')
 
@@ -80,9 +80,7 @@ class SpectroGenerator:
         xinprewin = np.lib.stride_tricks.as_strided(x, shape=shape, strides=strides)
         xinwin = win * xinprewin
 
-        result = xinwin.real
-        func = np.fft.rfft
-        fftraw = func(result, n=self.nfft)
+        fftraw = np.fft.rfft(xinwin.real, n=self.nfft)
 
         scale_psd = 1.0 / (sample_rate * (win * win).sum())
         vPSD_noBB = np.conjugate(fftraw) * fftraw
@@ -174,18 +172,24 @@ def main():
         args.output = args.audio_file[:-4] + '.png'
 
     data, sample_rate = soundfile.read(args.audio_file)
+    if len(data.shape) > 1:
+        if len(data.shape) > 2:
+            raise Exception(f"Soundfile data shape should have only one dimension and not be {data.shape}")
+        print('WARNING: soundfile has multiple channels, taking only first one')
+        data = data[:, 0]
 
     freq_plot_range = Range(args.freq_plot_range) if args.freq_plot_range else None
     freq_dyn_range = Range(args.freq_dyn_range) if args.freq_dyn_range else None
     color_val_range = Range(args.color_val_range) if args.color_val_range else None
 
     # Applying highpass Butterworth digital filter
-    butter_cutoff = 0
-    if freq_dyn_range and freq_dyn_range.min:
-        butter_cutoff = freq_dyn_range.min
-    elif freq_plot_range and freq_plot_range.min:
-        butter_cutoff = freq_plot_range.min
-    data = butter_highpass_filter(data, butter_cutoff, sample_rate, args.butter_order)
+    if args.butter_order:
+        butter_cutoff = 0
+        if freq_dyn_range and freq_dyn_range.min:
+            butter_cutoff = freq_dyn_range.min
+        elif freq_plot_range and freq_plot_range.min:
+            butter_cutoff = freq_plot_range.min
+        data = butter_highpass_filter(data, butter_cutoff, sample_rate, args.butter_order)
 
     spectro_generator = SpectroGenerator(
         args.nfft,
