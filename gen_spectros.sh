@@ -2,18 +2,21 @@
 # Bash script meant to be run in a directory containing FeatureService seed audio files
 
 # Default spectro path is in ../Scripts
-GEN_SPECTRO_PATH=../Scripts/gen_spectro.py
+export GEN_SPECTRO_PATH=gen_spectro.py
 # Tiling level 6 makes for a x32 zoom, level 5 is x16 and so on
-TILING_LEVEL=6
+export TILING_LEVEL=6
+# How many cores on machine to parallelize calculations (be careful about RAM consumption as well)
+CORES=5
 
 # make_spectros(audio_file, nfft, winsize, overlap)
 function make_spectros() {
   basename=${1%.*}
-  folder=$basename/nfft=$2\ winsize=$3\ overlap=$4;
+  folder=$basename/nfft=$2\ winsize=$3\ overlap=$4\ cvr=$6;
   mkdir -p "$folder";
   echo "Making spectros for $1 in folder $folder"
-  python3 $GEN_SPECTRO_PATH -t $TILING_LEVEL -w $3 -n $2 -o $4 $1 "$folder/$f";
+  python3 $GEN_SPECTRO_PATH -t $TILING_LEVEL -w $3 -n $2 -o $4 -mw $5 -cvr=$6 $1 "$folder/$1";
 }
+export -f make_spectros
 
 # make_zip(folder_name)
 function make_zip() {
@@ -22,45 +25,15 @@ function make_zip() {
   cd ..;
   rm -rf $1;
 }
+export -f make_zip
 
-# SPM
-# 1-winsize = 1024
-# 1-nfft = 2048
-# 1-overlap = 0.5
-# 2-winsize = 4096
-# 2-nfft = 4096
-# 2-overlap = 0.5
-for f in spm*.wav; do
-  make_spectros $f 2048 1024 0.5;
-  make_spectros $f 4096 4096 0.5;
-  basename=${f%.*};
+# process_wave(wave_filename)
+function process_wave() {
+  make_spectros $1 2048 512 90 1 "-90:0" >> spectros.log;
+  basename=${1%.*};
   make_zip $basename;
-done
+}
+export -f process_wave
 
-# DCLDE2015 HF
-# 1-winsize = 1024
-# 1-nfft = 1024
-# 1-overlap = 0.5
-# 2-winsize = 4096
-# 2-nfft = 4096
-# 2-overlap = 0.5
-for f in 0*.wav; do
-  make_spectros $f 1024 1024 0.5;
-  make_spectros $f 4096 4096 0.5;
-  basename=${f%.*};
-  make_zip $basename;
-done
-
-# DCLDE2015 LF
-# 1-winsize = 1024
-# 1-nfft = 2048
-# 1-overlap = 0.5
-# 2-winsize = 4096
-# 2-nfft = 4096
-# 2-overlap = 0.5
-for f in out*.wav; do
-  make_spectros $f 2048 1024 0.5;
-  make_spectros $f 4096 4096 0.5;
-  basename=${f%.*};
-  make_zip $basename;
-done
+# RUN SPECTROS CALCULATIONS ON ALL WAVE FILES USING https://www.gnu.org/software/parallel/
+ls *.wav | parallel --nice 10 -j $CORES process_wave
