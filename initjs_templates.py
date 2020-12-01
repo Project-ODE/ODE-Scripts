@@ -2,6 +2,18 @@
 Templates file for FeatureService seed generation
 """
 
+deletion = """.then(() => {
+        return knex('$table').del();
+    })
+    """
+
+insertion = """.then(() => {
+        return knex('$table').insert(
+            $inserts
+        );
+    })
+    """
+
 del_insert = """.then(() => {
         return knex('$table').del();
     })

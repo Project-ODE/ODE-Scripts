@@ -37,6 +37,7 @@ SEED_TABLES = [
 ]
 START_INDEX = 100
 END_INDEX = 1000
+MAX_INSERT = 10000
 
 # TODO add header checking for CSV
 
@@ -262,10 +263,12 @@ def main(seed_folder):
                     'status': 0,
                     'annotator_id': user['id']
                 })
-    inserts += Template(initjs_templates.del_insert).substitute({
-        'table': 'annotation_tasks',
-        'inserts': annotation_tasks
-    })
+    inserts += Template(initjs_templates.deletion).substitute({'table': 'annotation_tasks'})
+    for i in range(0, len(annotation_tasks), MAX_INSERT):
+        inserts += Template(initjs_templates.insertion).substitute({
+            'table': 'annotation_tasks',
+            'inserts': annotation_tasks[i:i + MAX_INSERT]
+        })
 
     # No init at the moment
     init = ''
