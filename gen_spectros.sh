@@ -35,5 +35,14 @@ function process_wave() {
 }
 export -f process_wave
 
-# RUN SPECTROS CALCULATIONS ON ALL WAVE FILES USING https://www.gnu.org/software/parallel/
-ls *.wav | parallel --nice 10 -j $CORES process_wave
+# Find next files to process thanks to a ruby one liner that returns all wave files that don't have a tgz
+next_waves=$(ruby -e "puts %x{ls *.wav}.split - %x{ls *.tgz}.split.map{|fn| fn.gsub('.tgz','.wav')}")
+if [ -z "$next_waves" ]
+then
+  echo "No unprocessed wav files found"
+else
+  echo "We will now start processing `echo $next_waves | wc -w` files using $CORES cores"
+
+  # RUN SPECTROS CALCULATIONS ON NEXT WAVES FILES USING https://www.gnu.org/software/parallel/
+  echo "$next_waves" | parallel --nice 10 -j $CORES process_wave
+fi
