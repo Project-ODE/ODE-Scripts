@@ -171,7 +171,7 @@ def main(seed_folder):
 
     # Generating annotation_sets
     annotation_sets = {
-        ac['annotation_set'].replace(' ', ''):{
+        ac['annotation_set'].strip():{
             'name': ac['name'],
             'desc': 'Annotation set made for ' + ac['name'],
             'owner_id': START_INDEX + 1
@@ -188,7 +188,7 @@ def main(seed_folder):
     annotation_tags = {
         tag:{
             'id': START_INDEX + i + 1,
-            'name': tag
+            'name': tag.strip()
         } for i, tag in enumerate(','.join(annotation_sets.keys()).split(','))
     }
     inserts += Template(initjs_templates.del_insert).substitute({
@@ -220,7 +220,7 @@ def main(seed_folder):
             'instructions_url': ac['instructions_url'],
             'start': ac['start'],
             'end': ac['end'],
-            'annotation_set_id': annotation_sets[ac['annotation_set'].replace(' ', '')]['id'],
+            'annotation_set_id': annotation_sets[ac['annotation_set'].strip()]['id'],
             'owner_id': START_INDEX + 1
         } for ac in data['annotation_campaigns.csv']
     }
